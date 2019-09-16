@@ -26,7 +26,11 @@ server.get("/hash", (req, res) => {
 
 server.post("/api/register", (req, res) => {
   let { username, password } = req.body;
-  const hash = bcrypt.hashSync(password);
+  const hash = bcrypt.hashSync(password, 8);
+  // the 8 is a number and the higher the number the hardesr the password
+  // is to hack. the higher the number, the SLOWER it is to generate though
+  // 8 means round. it means 2 ^ 8 power.
+  // always include in, 14 and up
 
   Users.add({ username, password: hash })
     .then(saved => {
@@ -40,12 +44,14 @@ server.post("/api/register", (req, res) => {
 
 server.post("/api/login", (req, res) => {
   let { username, password } = req.body;
-  const hash = bcrypt.compareSync(`${password}, ${hash}`);
 
   Users.findBy({ username })
     .first()
     .then(user => {
-      if (user) {
+      // check password doing the below 49
+      // *add to if statement* bcrypt.compareSync(password, user.password)
+      // above takes the password and compares the hashes returns true or false
+      if (user && bcrypt.compareSync(password, user.password)) {
         res.status(200).json({ message: `Welcome ${user.username}!` });
       } else {
         res.status(401).json({ message: "Invalid Credentials" });
@@ -66,3 +72,18 @@ server.get("/api/users", (req, res) => {
 
 const port = process.env.PORT || 5000;
 server.listen(port, () => console.log(`\n** Running on port ${port} **\n`));
+
+// * custom middleware * //
+// write a middleware that will check for the username and password
+// and let the request continue to /api/users if credentials are good
+// return a 401 if the credentials are invalid
+// Use the middleware to restrict access to the GET /api/users endpoint
+
+function validateCredentials(req, res, next) {
+  const credentials = req.body;
+
+  if (!user || !bcrypt.compareSync(credentials.password, user.password)) {
+    return res.status(401).json({ error: "Incorrect credentials" });
+  }
+  next();
+}

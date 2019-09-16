@@ -1,1 +1,3 @@
-npm i bcryptjs
+- npm i bcryptjs
+- npm i knex
+- const bcrypt = require("bcryptjs") where your crud ops are
