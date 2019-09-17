@@ -2,6 +2,7 @@ const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
+const session = require("express-session");
 
 const restricted = require("./auth/restricted-middleware.js");
 
@@ -10,9 +11,24 @@ const Users = require("./users/users-model.js");
 
 const server = express();
 
+// day 2 about cookies below
+const sessionConfig = {
+  name: "chocochip", // would name the cookie sid by default
+  secret: process.env.SESSION_SECRET || "keep it secret, keep it safe",
+  // now encrypt it with a secret. You can put this in another file how we did before
+  cookie: {
+    maxAge: 1000 * 60 * 60, // how long will this cookie be good for in milliseconds?
+    secure: false, // true means only send cookie over https
+    httpOnly: true // true means JS has no access to the cookie. this should always be true
+  },
+  resave: false,
+  saveUninitialized: true // GDPR compliance
+};
+
 server.use(helmet());
 server.use(express.json());
 server.use(cors());
+server.use(session(sessionConfig));
 
 server.get("/", (req, res) => {
   res.send("It's alive!");
