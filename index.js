@@ -3,17 +3,20 @@ const helmet = require("helmet");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const session = require("express-session");
-
-const restricted = require("./auth/restricted-middleware.js");
+// this below library has to come AFTER session above
+const KnexSessionStore = require("connect-session-knex")(session);
+// this is called currying so you require it and pass in the SESSION
 
 const db = require("./database/dbConfig.js");
 const Users = require("./users/users-model.js");
-
+const restricted = require("./auth/restricted-middleware.js");
+const dbConnection = require("./database/dbConfig");
 const server = express();
 
 // day 2 about cookies below
 const sessionConfig = {
   name: "chocochip", // would name the cookie sid by default
+  // check for this name in insomnia cookies manage cookies
   secret: process.env.SESSION_SECRET || "keep it secret, keep it safe",
   // now encrypt it with a secret. You can put this in another file how we did before
   cookie: {
@@ -22,7 +25,15 @@ const sessionConfig = {
     httpOnly: true // true means JS has no access to the cookie. this should always be true
   },
   resave: false,
-  saveUninitialized: true // GDPR compliance
+  saveUninitialized: true, // GDPR compliance
+  store: new KnexSessionStore({
+    // don't forget the (new) keyword
+    knex: dbConnection,
+    tableName: "knexSessions", // dont need they will default table name
+    // sidfieldname: "Sessionid", // dont need they will default sidfieldname
+    createtable: true, // if theres no table to store the session info do you want it ot make one for you
+    clearInterval: 1000 * 60 * 30 // every 30 mins cleans out old session data or expired data
+  })
 };
 
 server.use(helmet());
@@ -70,6 +81,8 @@ server.post("/api/login", (req, res) => {
       // *add to if statement* bcrypt.compareSync(password, user.password)
       // above takes the password and compares the hashes returns true or false
       if (user && bcrypt.compareSync(password, user.password)) {
+        req.session.user = user; // adding this from day 2 from restriced-middleware file
+        // now you can not use headers and json with no body to get users
         res.status(200).json({ message: `Welcome ${user.username}!` });
       } else {
         res.status(401).json({ message: "Invalid Credentials" });
@@ -94,6 +107,22 @@ server.get("/hash", (req, res) => {
   // hash the name
   const hash = bcrypt.hashSync(name, 8); // use bcryptjs to hash the name
   res.send(`the hash for ${name} is ${hash}`);
+});
+
+server.get("/logout", (req, res) => {
+  if (req.session) {
+    req.session.destroy(error => {
+      if (error) {
+        res.status(500).json({
+          message: "you can check out anytime you like, but you can never leave"
+        });
+      } else {
+        res.status(200).json({ message: "bye" });
+      }
+    });
+  } else {
+    res.status(200).json({ message: "already logged out" });
+  }
 });
 
 const port = process.env.PORT || 5000;
